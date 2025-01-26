@@ -67,9 +67,7 @@ class BPE:
         tokenized_text = []
         for word in text.split():
             tokenized_word = ' '.join(list(word))
-            # print(tokenized_word)
             for token in self.final_vacab:
-                # print(token)
                 tokenized_word = tokenized_word.replace(' '.join(list(token)), token)
             tokenized_text.append(tokenized_word)
         return tokenized_text
@@ -84,39 +82,45 @@ class BPEByteLevel(BPE):
 
     def build_vocab(self, text):
         vocab = defaultdict(int)
-        for word in text:
-            vocab[bytes(word)] += 1
+        for sentence in text:
+            for word in sentence.strip().split():
+                s_word = str.join(' ', list(word))
+                vocab[s_word] += 1
         return vocab
     
     def get_stat(self, vocab):
         pairs = defaultdict(int)
         for word, freq in vocab.items():
-            symbols = list(word)
+            symbols = word.split()
             for i in range(len(symbols) - 1):
-                pairs[bytes(symbols[i]), bytes(symbols[i+1])] += freq
+                pairs[symbols[i], symbols[i+1]] += freq
         return pairs
     
     def merge_vocab(self, pair, vocab):
         new_vocab = {}
         first, second = pair
-        replace_ment = bytes(first + second) # concatenate two bytes
-
+        replace_ment = first + second # concatenate two bytes
         for word in vocab:
-            new_word = word.replace(replace_ment, replace_ment)
+            new_word = word.replace(first + " " + second, replace_ment)
             new_vocab[new_word] = vocab[word]
         return new_vocab
+
     
     def train(self, byte_data):
         self.vocab = self.build_vocab(byte_data)
+        self.pair = None
         for i in range(self.num_merges):
             pair = self.get_stat(self.vocab)
             if not pair:
                 break
+            self.pair = pair
             most_freq_pair = max(pair, key=pair.get)
+            if pair.get(most_freq_pair) < self.min_frequency:
+                break
             self.vocab = self.merge_vocab(most_freq_pair, self.vocab)
         self.final_vacab = set()
         for word in self.vocab:
-                self.final_vacab.add(word)
+            self.final_vacab.add(word)
 
     def tokenize(self, text):
         tokenized_data = []
@@ -124,7 +128,7 @@ class BPEByteLevel(BPE):
             tokenized_seq = byte_data
             for token in self.final_vacab:
                 replace_token = token
-                replacement = bytes(" {} ".format(token.decode("utf-8")), encoding='utf-8')
+                replacement = " {} ".format(token)
                 tokenized_seq = tokenized_seq.replace(replace_token, replacement)
             tokenized_data.append(tokenized_seq)
         return tokenized_data
@@ -135,10 +139,11 @@ if __name__ == "__main__":
     class TestBPEByteLevel(unittest.TestCase):
         def test_bpe_byte_level(self):
             # Initialize the BPEByteLevel tokenizer
-            tokenizer = BPEByteLevel()
+            tokenizer = BPEByteLevel(100)
             
             # Define the training data
-            train_text = ["hello",
+            train_text = [
+                        "hello",
                         "world", 
                         "hello world", 
                         "这里是中文测试", 
@@ -149,8 +154,18 @@ if __name__ == "__main__":
                         "3", 
                         "low", 
                         "lower", 
-                        "lowest"]
-            train_text = [t.encode('utf-8') for t in train_text]
+                        "lowest",
+                        "big",
+                        "bigger",
+                        "biggest",
+                        "estimate",
+                        "charger",
+                        "charge",
+                        "flower",
+                        "4",
+                        "3.14",
+                        "5.12"
+                        ]
             
             # Train the tokenizer
             tokenizer.train(train_text)
@@ -164,13 +179,11 @@ if __name__ == "__main__":
                         "这里是中文测试", 
                         "123",
                         "lowest"]
-            test_text = [t.encode('utf-8') for t in test_text]
             
             # Tokenize the test data
             tokenized_text = tokenizer.tokenize(test_text)
             
-            # Decode the tokenized text for comparison
-            decoded_text = [t.decode('utf-8').split() for t in tokenized_text]
+            decoded_text = [t.split() for t in tokenized_text]
             
             expected_output = ["hello".split(), 
                                 "world".split(),
