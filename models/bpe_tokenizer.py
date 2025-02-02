@@ -77,17 +77,24 @@ class BPE:
 
     def tokenize(self, text):
         return self.post_process(text)
-    
 class BPEByteLevel(BPE):
 
     def build_vocab(self, text):
+        '''build vocabulary from the input text'''
         vocab = defaultdict(int)
         for sentence in text:
-            for word in sentence.strip().split():
-                s_word = str.join(' ', list(word))
-                vocab[s_word] += 1
+            tokens = []
+            for token in re.findall(r"[\u4e00-\u9fff]+|[a-zA-Z']+|\d+\.\d+|\d+|\S", sentence):
+                if re.match(r"[\u4e00-\u9fff]+", token):
+                    # Tokenize Chinese characters individually
+                    tokens.extend([word+"</w>" for word in list(token)])
+                else:
+                    # Treat non-Chinese words as whole tokens
+                    tokens.append(token + "</w>")  # Non-Chinese words (English, numbers, etc.)
+            for token in tokens:
+                vocab[token] += 1
         return vocab
-    
+
     def get_stat(self, vocab):
         pairs = defaultdict(int)
         for word, freq in vocab.items():
@@ -95,17 +102,16 @@ class BPEByteLevel(BPE):
             for i in range(len(symbols) - 1):
                 pairs[symbols[i], symbols[i+1]] += freq
         return pairs
-    
+
     def merge_vocab(self, pair, vocab):
         new_vocab = {}
         first, second = pair
-        replace_ment = first + second # concatenate two bytes
+        replace_ment = first + second  # concatenate two bytes
         for word in vocab:
             new_word = word.replace(first + " " + second, replace_ment)
             new_vocab[new_word] = vocab[word]
         return new_vocab
 
-    
     def train(self, byte_data):
         self.vocab = self.build_vocab(byte_data)
         self.pair = None
@@ -125,7 +131,17 @@ class BPEByteLevel(BPE):
     def tokenize(self, text):
         tokenized_data = []
         for byte_data in text:
-            tokenized_seq = byte_data
+            tokens = []
+            for token in re.findall(r"[\u4e00-\u9fff]+|[a-zA-Z']+|\d+\.\d+|\d+|\S", byte_data):
+                if re.match(r"[\u4e00-\u9fff]+", token):
+                    # Tokenize Chinese characters individually
+                    tokens.extend(list(token))  # Chinese characters
+                    for idx in range(len(tokens)):
+                        tokens[idx] = tokens[idx] + "</w>"
+                else:
+                    # Treat non-Chinese words as whole tokens
+                    tokens.append(token + '</w>')  # Non-Chinese words (English, numbers, etc.)
+            tokenized_seq = ' '.join(tokens)
             for token in self.final_vacab:
                 replace_token = token
                 replacement = " {} ".format(token)
@@ -158,6 +174,7 @@ if __name__ == "__main__":
                         "big",
                         "bigger",
                         "biggest",
+                        "funniest",
                         "estimate",
                         "charger",
                         "charge",
@@ -185,13 +202,15 @@ if __name__ == "__main__":
             
             decoded_text = [t.split() for t in tokenized_text]
             
-            expected_output = ["hello".split(), 
-                                "world".split(),
-                                "hello world".split(), 
-                                "hello hello world".split(), 
-                                "这里 是 中文 测试".split(), 
-                                "12 3".split(),
-                                "low est".split()]
+            expected_output = [
+                ['hello</w>'],
+                ['world</w>'], 
+                ['hello</w>', 'world</w>'],
+                ['hello</w>', 'hello</w>', 'world</w>'],
+                ['这</w>', '里</w>', '是</w>', '中</w>', '文</w>', '测</w>', '试</w>'],
+                ['12', '3</w>'],
+                ['lowest</w>']
+            ]
             self.assertEqual(decoded_text, expected_output)
 
     unittest.main()
