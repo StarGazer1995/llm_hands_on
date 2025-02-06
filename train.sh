@@ -1,0 +1,1 @@
+python3 models/train.py --config="configs/base_gpy.py"
