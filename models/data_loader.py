@@ -19,17 +19,32 @@ class DataLoader(Dataset):
         else:
             self._load_file(self.eval_dataset)
 
+        self.stoi = {ch: i for i, ch in enumerate(self.chars)}
+        self.itos = {i: ch for i, ch in enumerate(self.chars)}
+
     def __len__(self):
         return len(self.data)
+    
+    def encode(self, s):
+        return [self.stoi[c] for c in s]
+
+    def decode(self, l):
+        return ''.join([self.itos[i] for i in l])
 
     def _load_file(self, file_path):
         with open(file_path, "r", encoding="utf-8") as f:
-            self.data = torch.tensor(f.read())
+            self.data = f.read()
+        
+        self.chars = sorted(list(set(self.data)))
+        self.stoi = {ch: i for i, ch in enumerate(self.chars)}
+        self.itos = {i: ch for i, ch in enumerate(self.chars)}
+        self.data = self.encode(self.data)
+        self.data = torch.tensor(self.data, dtype=torch.long)
         
     def get_batch(self, index):
         idx = torch.randint(len(self.data) - self.block_size, (self.batch_size, ))
-        inputs = torch.stack(self.data[i:i * self.block_size] for i in idx)
-        targets = torch.stack(self.data[i+1:i+1 * self.block_size] for i in idx)
+        inputs = torch.stack([self.data[i:i + self.block_size] for i in idx])
+        targets = torch.stack([self.data[i+1:i+1 + self.block_size] for i in idx])
         return inputs, targets
     
     def __getitem__(self, index):

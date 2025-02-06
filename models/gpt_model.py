@@ -3,17 +3,17 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 # Hyperparameters
-batch_size = 32
-block_size = 8
-max_iters = 5000
-eval_interval = 300
-learning_rate = 3e-4
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-eval_iters = 200
-n_embd = 384
-n_head = 6
-n_layer = 6
-dropout = 0.2
+# batch_size = 32
+# block_size = 8
+# max_iters = 5000
+# eval_interval = 300
+# learning_rate = 3e-4
+# device = 'cuda' if torch.cuda.is_available() else 'cpu'
+# eval_iters = 200
+# n_embd = 384
+# n_head = 6
+# n_layer = 6
+# dropout = 0.2
 
 torch.manual_seed(1337)
 
@@ -78,7 +78,7 @@ class MultiHeadAttention(nn.Module):
         return x
 
 class FeedForward(nn.Module):
-    def __init__(self, n_embd):
+    def __init__(self, n_embd, dropout=0.2):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(n_embd, 4 * n_embd),
@@ -108,11 +108,16 @@ class BigramLanguageModel(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
-        self.token_embedding_table = nn.Embedding(self.cfg.vocab_size, n_embd)
+        n_embd = self.cfg.get("n_embd", None)
+        block_size = self.cfg.get("block_size", None)
+        n_head = self.cfg.get("n_head", None)
+        n_layer = self.cfg.get("n_layer", None)
+        vocab_size = self.cfg.get("vocab_size", None)
+        self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
-        self.blocks = nn.Sequential(*[Block(n_head, n_embd, self.cfg.block_size) for _ in range(n_layer)])
+        self.blocks = nn.Sequential(*[Block(n_head, n_embd, block_size) for _ in range(n_layer)])
         self.ln_f = nn.LayerNorm(n_embd)
-        self.lm_head = nn.Linear(n_embd, self.cfg.vocab_size)
+        self.lm_head = nn.Linear(n_embd, vocab_size)
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
@@ -126,7 +131,7 @@ class BigramLanguageModel(nn.Module):
     def forward(self, idx, targets=None):
         B, T = idx.shape
         tok_emb = self.token_embedding_table(idx)
-        pos_emb = self.position_embedding_table(torch.arange(T, device=device))
+        pos_emb = self.position_embedding_table(torch.arange(T, device=idx.device))
         x = tok_emb + pos_emb
         x = self.blocks(x)
         x = self.ln_f(x)
