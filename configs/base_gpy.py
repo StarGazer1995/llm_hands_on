@@ -1,7 +1,7 @@
 model=dict(
 # Hyperparameters
 batch_size = 32,
-block_size = 8,
+block_size = 384,
 max_iters = 5000,
 eval_interval = 300,
 learning_rate = 3e-4,

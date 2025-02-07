@@ -24,7 +24,7 @@ class Trainer:
 
         self.build_model()
         self.build_optimizer()
-        self.data_loader = DataLoader(self.dataset, self.dataset, mode="train", batch_size=self.batch_size, block_size=self.block_size)
+        self.data_loader = DataLoader(self.dataset, self.dataset, device=self.model_cfg["device"], mode="train", batch_size=self.batch_size, block_size=self.block_size)
 
     def update_config(self):
         self.batch_size = self.model_cfg.get("batch_size", None)
@@ -39,6 +39,7 @@ class Trainer:
 
     def build_model(self):
         self.model = BigramLanguageModel(self.model_cfg)
+        self.model = self.model.to(self.model_cfg["device"])
 
     def load_config(self, config_file_path):
         # Load the configuration file as a module

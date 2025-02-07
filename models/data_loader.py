@@ -4,7 +4,7 @@ import tiktoken
 from torch.utils.data import Dataset
 
 class DataLoader(Dataset):
-    def __init__(self, train_dataset, eval_dataset, mode, manual_seed=137, batch_size=4, block_size=8):
+    def __init__(self, train_dataset, eval_dataset, mode, device="cpu", manual_seed=137, batch_size=4, block_size=8):
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
         self.manual_seed = manual_seed
@@ -12,6 +12,7 @@ class DataLoader(Dataset):
         self.block_size = block_size
         self.data = None
         self.mode = mode
+        self.device = device
         assert self.mode in ("train", "eval", "test")
         torch.manual_seed(self.manual_seed)
         if self.mode == "train":
@@ -39,7 +40,7 @@ class DataLoader(Dataset):
         self.stoi = {ch: i for i, ch in enumerate(self.chars)}
         self.itos = {i: ch for i, ch in enumerate(self.chars)}
         self.data = self.encode(self.data)
-        self.data = torch.tensor(self.data, dtype=torch.long)
+        self.data = torch.tensor(self.data, dtype=torch.long).to(self.device)
         
     def get_batch(self, index):
         idx = torch.randint(len(self.data) - self.block_size, (self.batch_size, ))
